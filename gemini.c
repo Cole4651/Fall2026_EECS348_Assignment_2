@@ -18,7 +18,7 @@ typedef struct {
     int capacity;
 } MaxHeap;
 
-// Helper: Convert sender category string to priority integer score
+// Maps sender category to numerical priority
 int get_sender_priority(const char *sender) {
     if (strcmp(sender, "Boss") == 0) return 5;
     if (strcmp(sender, "Subordinate") == 0) return 4;
@@ -28,14 +28,14 @@ int get_sender_priority(const char *sender) {
     return 0;
 }
 
-// Helper: Convert MM-DD-YYYY to YYYYMMDD integer for chronological comparison
+// Converts MM-DD-YYYY into YYYYMMDD integer for easy chronological comparison
 int parse_date_key(const char *date_str) {
     int month, day, year;
     sscanf(date_str, "%d-%d-%d", &month, &day, &year);
     return year * 10000 + month * 100 + day;
 }
 
-// Compare two emails: returns >0 if 'a' has higher priority than 'b'
+// Returns > 0 if email 'a' has higher priority than email 'b'
 int compare_emails(Email a, Email b) {
     if (a.priority_score != b.priority_score) {
         return a.priority_score - b.priority_score;
@@ -44,7 +44,6 @@ int compare_emails(Email a, Email b) {
     return a.date_key - b.date_key;
 }
 
-// Heap initialization
 MaxHeap* create_heap(int initial_capacity) {
     MaxHeap *heap = (MaxHeap*)malloc(sizeof(MaxHeap));
     heap->capacity = initial_capacity;
@@ -115,24 +114,38 @@ void free_heap(MaxHeap *heap) {
     free(heap);
 }
 
-int main() {
+int main(int argc, char *argv[]) {
     MaxHeap *heap = create_heap(10);
     char line[MAX_LINE];
+    FILE *file = stdin;
 
-    while (fgets(line, sizeof(line), stdin)) {
+    // Open sample.txt if passed via command line argument
+    if (argc > 1) {
+        file = fopen(argv[1], "r");
+        if (!file) {
+            fprintf(stderr, "Error opening file: %s\n", argv[1]);
+            free_heap(heap);
+            return 1;
+        }
+    }
+
+    while (fgets(line, sizeof(line), file)) {
         // Strip trailing newline characters
         line[strcspn(line, "\r\n")] = 0;
 
         if (strncmp(line, "EMAIL ", 6) == 0) {
             Email e;
             char *payload = line + 6;
+            
+            // Parse comma-delimited string fields
             char *token = strtok(payload, ",");
-
-            if (token) strncpy(e.sender, token, sizeof(e.sender));
+            if (token) strncpy(e.sender, token, sizeof(e.sender) - 1);
+            
             token = strtok(NULL, ",");
-            if (token) strncpy(e.subject, token, sizeof(e.subject));
+            if (token) strncpy(e.subject, token, sizeof(e.subject) - 1);
+            
             token = strtok(NULL, ",");
-            if (token) strncpy(e.date_str, token, sizeof(e.date_str));
+            if (token) strncpy(e.date_str, token, sizeof(e.date_str) - 1);
 
             e.priority_score = get_sender_priority(e.sender);
             e.date_key = parse_date_key(e.date_str);
@@ -156,6 +169,10 @@ int main() {
                 pop_max(heap);
             }
         }
+    }
+
+    if (file != stdin) {
+        fclose(file);
     }
 
     free_heap(heap);
